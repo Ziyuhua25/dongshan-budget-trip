@@ -74,17 +74,32 @@ npm run preview
 
 ## Deploy
 
-可部署到 GitHub Pages。
+可部署到 GitHub Pages。项目已经包含 GitHub Actions 部署配置：
 
-方式一：使用仓库 Pages 设置，把构建产物部署到 Pages。
-
-方式二：使用 `gh-pages`：
-
-```bash
-npm run deploy
+```text
+.github/workflows/deploy.yml
 ```
 
-如果仓库不是发布在根路径，建议根据仓库名调整 `vite.config.js` 的 `base`。
+首次启用：
+
+1. 打开 GitHub 仓库的 `Settings`。
+2. 进入 `Pages`。
+3. 在 `Build and deployment` 里把 `Source` 设置为 `GitHub Actions`。
+4. 推送到 `main` 分支后，GitHub 会自动运行部署。
+
+部署完成后，页面地址通常是：
+
+```text
+https://<你的用户名>.github.io/<仓库名>/
+```
+
+也可以手动本地构建：
+
+```bash
+npm run build
+```
+
+当前 `vite.config.js` 使用 `base: './'`，适合部署到 GitHub Pages 的仓库子路径。
 
 ## Content Notes
 
