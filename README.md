@@ -18,6 +18,7 @@
 - Vite
 - Tailwind CSS
 - Lucide React
+- Vercel Functions（可选，用于智能编辑后台）
 
 ## Project Structure
 
@@ -100,6 +101,41 @@ npm run build
 ```
 
 当前 `vite.config.js` 使用 `base: './'`，适合部署到 GitHub Pages 的仓库子路径。
+
+## Smart Editing Backend
+
+项目也包含一个可选的智能编辑后台雏形，适合部署到 Vercel：
+
+- `/api/suggest`：管理员请求搜索 + AI 修改建议
+- `/api/create-pr`：把建议写入 `content/proposals/` 并创建 GitHub Pull Request
+- 前端右下角 `智能编辑`：输入后端 URL 和管理员口令后使用
+
+安全设计：
+
+- OpenAI API Key、GitHub Token、管理员口令都只放在 Vercel 环境变量中。
+- 前端不会打包任何密钥。
+- AI 不会直接改 `main`，只创建 PR，合并前需要人工确认。
+
+Vercel 环境变量参考 `.env.example`：
+
+```text
+ADMIN_TOKEN=change-this-admin-password
+OPENAI_API_KEY=sk-your-openai-api-key
+OPENAI_MODEL=gpt-5.5
+GITHUB_TOKEN=ghp-your-github-token-with-repo-scope
+GITHUB_OWNER=Ziyuhua25
+GITHUB_REPO=dongshan-budget-trip
+GITHUB_BASE_BRANCH=main
+ALLOWED_ORIGIN=https://ziyuhua25.github.io
+```
+
+部署方式：
+
+1. 在 Vercel 导入这个 GitHub 仓库。
+2. Framework 选择 Vite。
+3. 填入上面的环境变量。
+4. 部署完成后，把 Vercel 域名填到网站右下角 `智能编辑` 面板的 `后端 API URL`。
+5. `管理员口令` 填你设置的 `ADMIN_TOKEN`。
 
 ## Content Notes
 

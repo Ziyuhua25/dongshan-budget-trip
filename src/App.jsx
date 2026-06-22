@@ -5,6 +5,7 @@ import Footer from './components/Footer';
 import Hero from './components/Hero';
 import PhotoSpots from './components/PhotoSpots';
 import RouteOverview from './components/RouteOverview';
+import SmartEditor from './components/SmartEditor';
 import Tips from './components/Tips';
 import TransportGuide from './components/TransportGuide';
 
@@ -51,6 +52,7 @@ export default function App() {
       </main>
 
       <Footer />
+      <SmartEditor />
     </div>
   );
 }

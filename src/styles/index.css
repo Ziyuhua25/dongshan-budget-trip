@@ -62,4 +62,12 @@
   .info-line {
     @apply flex items-start gap-2 border-t border-coast-100 pt-3 leading-6 text-ink/70;
   }
+
+  .field-label {
+    @apply block text-sm font-black text-ink/75;
+  }
+
+  .field-input {
+    @apply mt-1 w-full border border-coast-100 bg-white px-3 py-3 text-sm font-semibold text-ink outline-none transition placeholder:text-ink/35 focus:border-coast-500 focus:bg-coast-50;
+  }
 }
