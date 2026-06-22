@@ -108,7 +108,7 @@ npm run build
 
 - `/api/suggest`：管理员请求搜索 + AI 修改建议
 - `/api/create-pr`：把建议写入 `content/proposals/` 并创建 GitHub Pull Request
-- 前端右下角 `智能编辑`：输入后端 URL 和管理员口令后使用
+- 访问 `?admin=1` 后，前端右下角显示 `智能编辑`：输入后端 URL 和管理员口令后使用
 
 安全设计：
 
@@ -134,8 +134,9 @@ ALLOWED_ORIGIN=https://ziyuhua25.github.io
 1. 在 Vercel 导入这个 GitHub 仓库。
 2. Framework 选择 Vite。
 3. 填入上面的环境变量。
-4. 部署完成后，把 Vercel 域名填到网站右下角 `智能编辑` 面板的 `后端 API URL`。
-5. `管理员口令` 填你设置的 `ADMIN_TOKEN`。
+4. 部署完成后，用 `https://ziyuhua25.github.io/dongshan-budget-trip/?admin=1` 打开管理员入口。
+5. 把 Vercel 域名填到网站右下角 `智能编辑` 面板的 `后端 API URL`。
+6. `管理员口令` 填你设置的 `ADMIN_TOKEN`。
 
 ## Content Notes
 

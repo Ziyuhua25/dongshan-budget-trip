@@ -29,6 +29,10 @@ function buildEndpoint(apiBase, path) {
 }
 
 export default function SmartEditor() {
+  const [enabled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('admin') === '1' || Boolean(getStoredValue(storageKeys.adminToken));
+  });
   const [open, setOpen] = useState(false);
   const [apiBase, setApiBase] = useState(() => getStoredValue(storageKeys.apiBase));
   const [adminToken, setAdminToken] = useState(() => getStoredValue(storageKeys.adminToken));
@@ -42,6 +46,10 @@ export default function SmartEditor() {
   const [prUrl, setPrUrl] = useState('');
 
   const canCallApi = useMemo(() => adminToken.trim().length > 0, [adminToken]);
+
+  if (!enabled) {
+    return null;
+  }
 
   function persistSettings() {
     setStoredValue(storageKeys.apiBase, normalizeApiBase(apiBase));
