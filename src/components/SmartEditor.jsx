@@ -1,143 +1,157 @@
-import { Bot, ExternalLink, FileJson, GitPullRequest, KeyRound, Search, Sparkles, X } from 'lucide-react';
+import { ExternalLink, FileJson, RotateCcw, Search, Sparkles, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 const storageKeys = {
-  apiBase: 'dongshan-admin-api-base',
-  adminToken: 'dongshan-admin-token',
+  draft: 'dongshan-search-editor-draft',
 };
 
 const sections = ['每日行程', '交通指南', '住宿建议', '预算', '吃饭攻略', '拍照打卡', '避坑提醒', '咖啡店计划'];
 
-function getStoredValue(key) {
-  if (typeof window === 'undefined') return '';
-  return window.localStorage.getItem(key) || '';
-}
+const searchTargets = [
+  {
+    name: '百度',
+    hint: '中文网页攻略',
+    buildUrl: (query) => `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`,
+  },
+  {
+    name: 'Google',
+    hint: '综合搜索',
+    buildUrl: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+  },
+  {
+    name: '高德地图',
+    hint: '地址和路线',
+    buildUrl: (query) => `https://www.amap.com/search?query=${encodeURIComponent(query)}`,
+  },
+  {
+    name: '小红书',
+    hint: '游记和实拍',
+    buildUrl: (query) => `https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(query)}`,
+  },
+  {
+    name: '抖音',
+    hint: '短视频近况',
+    buildUrl: (query) => `https://www.douyin.com/search/${encodeURIComponent(query)}`,
+  },
+  {
+    name: 'Bing',
+    hint: '备用搜索',
+    buildUrl: (query) => `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
+  },
+];
 
-function setStoredValue(key, value) {
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(key, value);
+const quickTopics = [
+  '东山岛 南屿绿色灯塔 潮汐',
+  '东山岛 金銮湾 日出 时间',
+  '东山岛 苏峰山环岛路 电动车',
+  '厦门 天坛咖啡 EF 地址',
+  '厦门 到 东山岛 巴士',
+  '东山岛 铜陵镇 住宿 性价比',
+  '东山岛 海鲜 大排档 避坑',
+  '六月 福建沿海 天气 雷雨',
+];
+
+function getStoredDraft() {
+  if (typeof window === 'undefined') return null;
+  try {
+    return JSON.parse(window.localStorage.getItem(storageKeys.draft) || 'null');
+  } catch {
+    return null;
   }
 }
 
-function normalizeApiBase(value) {
-  return value.trim().replace(/\/$/, '');
+function saveDraft(draft) {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(storageKeys.draft, JSON.stringify(draft));
+  }
 }
 
-function buildEndpoint(apiBase, path) {
-  const base = normalizeApiBase(apiBase);
-  return `${base}${path}`;
+function removeDraft() {
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(storageKeys.draft);
+  }
+}
+
+function makeSuggestions(section, topic) {
+  const base = topic.trim();
+  const sectionHints = {
+    每日行程: ['最新攻略', '路线安排', '交通时间', '避坑'],
+    交通指南: ['交通', '巴士', '动车', '拼车', '时刻表'],
+    住宿建议: ['住宿', '民宿', '位置', '性价比', '避雷'],
+    预算: ['价格', '预算', '门票', '餐饮消费'],
+    吃饭攻略: ['小吃', '海鲜', '大排档', '价格'],
+    拍照打卡: ['拍照机位', '日出', '日落', '实拍'],
+    避坑提醒: ['避坑', '注意事项', '天气', '潮汐'],
+    咖啡店计划: ['地址', '营业时间', '探店', '最新'],
+  };
+  const hints = sectionHints[section] || ['攻略', '最新', '避坑'];
+  return [base, ...hints.map((hint) => `${base} ${hint}`)].filter(Boolean);
 }
 
 export default function SmartEditor() {
   const [enabled] = useState(() => {
     if (typeof window === 'undefined') return false;
-    return new URLSearchParams(window.location.search).get('admin') === '1' || Boolean(getStoredValue(storageKeys.adminToken));
+    return new URLSearchParams(window.location.search).get('admin') === '1' || Boolean(getStoredDraft());
   });
+  const storedDraft = getStoredDraft();
   const [open, setOpen] = useState(false);
-  const [apiBase, setApiBase] = useState(() => getStoredValue(storageKeys.apiBase));
-  const [adminToken, setAdminToken] = useState(() => getStoredValue(storageKeys.adminToken));
-  const [section, setSection] = useState('每日行程');
-  const [topic, setTopic] = useState('东山岛 南屿绿色灯塔 潮汐');
-  const [currentText, setCurrentText] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [creatingPr, setCreatingPr] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState('');
-  const [prUrl, setPrUrl] = useState('');
+  const [section, setSection] = useState(storedDraft?.section || '每日行程');
+  const [topic, setTopic] = useState(storedDraft?.topic || '东山岛 南屿绿色灯塔 潮汐');
+  const [notes, setNotes] = useState(storedDraft?.notes || '');
 
-  const canCallApi = useMemo(() => adminToken.trim().length > 0, [adminToken]);
+  const queries = useMemo(() => makeSuggestions(section, topic), [section, topic]);
+  const primaryQuery = queries[0] || topic;
 
   if (!enabled) {
     return null;
   }
 
-  function persistSettings() {
-    setStoredValue(storageKeys.apiBase, normalizeApiBase(apiBase));
-    setStoredValue(storageKeys.adminToken, adminToken.trim());
-  }
-
-  async function requestSuggestion() {
-    persistSettings();
-    setLoading(true);
-    setError('');
-    setPrUrl('');
-
-    try {
-      const response = await fetch(buildEndpoint(apiBase, '/api/suggest'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Token': adminToken.trim(),
-        },
-        body: JSON.stringify({ section, topic, currentText }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || '请求失败');
-      }
-      setResult(data);
-    } catch (requestError) {
-      setError(requestError.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function createProposalPr() {
-    if (!result) return;
-    persistSettings();
-    setCreatingPr(true);
-    setError('');
-
-    try {
-      const response = await fetch(buildEndpoint(apiBase, '/api/create-pr'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Token': adminToken.trim(),
-        },
-        body: JSON.stringify({
-          title: `Update travel guide: ${topic}`,
-          section,
-          topic,
-          currentText,
-          suggestion: result,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || '创建 PR 失败');
-      }
-      setPrUrl(data.pullRequestUrl);
-    } catch (requestError) {
-      setError(requestError.message);
-    } finally {
-      setCreatingPr(false);
-    }
+  function persistDraft(nextValues = {}) {
+    saveDraft({
+      section,
+      topic,
+      notes,
+      updatedAt: new Date().toISOString(),
+      ...nextValues,
+    });
   }
 
   function exportJson() {
     const payload = {
       section,
       topic,
-      currentText,
-      suggestion: result,
+      notes,
+      queries,
+      links: queries.flatMap((query) =>
+        searchTargets.map((target) => ({
+          query,
+          target: target.name,
+          url: target.buildUrl(query),
+        })),
+      ),
       exportedAt: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `dongshan-guide-suggestion-${Date.now()}.json`;
+    link.download = `dongshan-search-notes-${Date.now()}.json`;
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  function resetDraft() {
+    removeDraft();
+    setSection('每日行程');
+    setTopic('东山岛 南屿绿色灯塔 潮汐');
+    setNotes('');
   }
 
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-black text-white shadow-soft transition hover:bg-coral">
         <Sparkles className="h-4 w-4" />
-        智能编辑
+        搜索编辑
       </button>
 
       {open && (
@@ -145,41 +159,16 @@ export default function SmartEditor() {
           <section className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden bg-sand shadow-2xl">
             <header className="flex items-center justify-between gap-4 border-b border-coast-100 bg-white px-5 py-4">
               <div>
-                <p className="eyebrow mb-1">Admin CMS</p>
-                <h2 className="text-2xl font-black text-ink">智能攻略编辑器</h2>
+                <p className="eyebrow mb-1">Static Search Editor</p>
+                <h2 className="text-2xl font-black text-ink">攻略搜索跳转工具</h2>
               </div>
-              <button type="button" onClick={() => setOpen(false)} className="grid h-10 w-10 place-items-center rounded-full border border-coast-100 text-ink transition hover:bg-coast-50" aria-label="关闭智能编辑器">
+              <button type="button" onClick={() => setOpen(false)} className="grid h-10 w-10 place-items-center rounded-full border border-coast-100 text-ink transition hover:bg-coast-50" aria-label="关闭搜索编辑器">
                 <X className="h-5 w-5" />
               </button>
             </header>
 
-            <div className="grid min-h-0 flex-1 gap-0 overflow-y-auto lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="grid min-h-0 flex-1 gap-0 overflow-y-auto lg:grid-cols-[0.9fr_1.1fr]">
               <div className="space-y-4 border-b border-coast-100 bg-white p-5 lg:border-b-0 lg:border-r">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="field-label">
-                    后端 API URL
-                    <input
-                      value={apiBase}
-                      onChange={(event) => setApiBase(event.target.value)}
-                      placeholder="Vercel 地址，可留空表示同域"
-                      className="field-input"
-                    />
-                  </label>
-                  <label className="field-label">
-                    管理员口令
-                    <div className="relative">
-                      <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
-                      <input
-                        value={adminToken}
-                        type="password"
-                        onChange={(event) => setAdminToken(event.target.value)}
-                        placeholder="ADMIN_TOKEN"
-                        className="field-input pl-9"
-                      />
-                    </div>
-                  </label>
-                </div>
-
                 <label className="field-label">
                   编辑区域
                   <select value={section} onChange={(event) => setSection(event.target.value)} className="field-input">
@@ -192,129 +181,112 @@ export default function SmartEditor() {
                 </label>
 
                 <label className="field-label">
-                  想更新或搜索的主题
+                  想搜索或修改的主题
                   <input value={topic} onChange={(event) => setTopic(event.target.value)} className="field-input" />
                 </label>
 
+                <div>
+                  <p className="field-label">快捷主题</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {quickTopics.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => {
+                          setTopic(item);
+                          persistDraft({ topic: item });
+                        }}
+                        className="rounded-full bg-coast-50 px-3 py-2 text-xs font-bold text-coast-700 transition hover:bg-coral hover:text-white"
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <label className="field-label">
-                  当前内容或你的草稿
+                  核查笔记 / 修改草稿
                   <textarea
-                    value={currentText}
-                    onChange={(event) => setCurrentText(event.target.value)}
-                    rows={9}
-                    placeholder="把你想修改的攻略段落粘到这里，AI 会结合搜索结果给建议。"
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    rows={10}
+                    placeholder="打开搜索结果后，把你确认过的信息、价格、地址、潮汐提醒、避坑点写在这里。"
                     className="field-input resize-y leading-7"
                   />
                 </label>
 
                 <div className="flex flex-wrap gap-3">
-                  <button type="button" onClick={requestSuggestion} disabled={!canCallApi || loading} className="btn-primary disabled:cursor-not-allowed disabled:opacity-50">
-                    <Search className="h-4 w-4" />
-                    {loading ? '搜索和分析中...' : '搜索并给建议'}
+                  <button type="button" onClick={() => persistDraft()} className="btn-primary">
+                    保存草稿
                   </button>
-                  <button type="button" onClick={exportJson} disabled={!result} className="btn-muted disabled:cursor-not-allowed disabled:opacity-50">
+                  <button type="button" onClick={exportJson} className="btn-muted">
                     <FileJson className="h-4 w-4" />
                     导出 JSON
+                  </button>
+                  <button type="button" onClick={resetDraft} className="btn-muted">
+                    <RotateCcw className="h-4 w-4" />
+                    重置
                   </button>
                 </div>
 
                 <div className="border-l-4 border-coral bg-sand p-4 text-sm leading-6 text-ink/75">
-                  这个面板不会把密钥写进网页代码。管理员口令只存在你的浏览器 localStorage，并通过请求头发给后端校验。
+                  这是纯静态功能，不调用任何 API，也不会产生费用。它只负责生成搜索链接、保存本地草稿和导出文件。
                 </div>
               </div>
 
               <div className="space-y-4 p-5">
-                {error && <div className="border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{error}</div>}
-
-                {!result && !error && (
-                  <div className="card flex min-h-[320px] flex-col items-center justify-center text-center">
-                    <Bot className="h-12 w-12 text-coast-500" />
-                    <h3 className="mt-4 text-xl font-black text-ink">等待生成建议</h3>
-                    <p className="mt-2 max-w-md leading-7 text-ink/65">输入主题后，后端会调用搜索和 AI，把结果整理成可人工确认的修改建议。</p>
+                <article className="card">
+                  <p className="eyebrow">One Click Search</p>
+                  <h3 className="text-xl font-black text-ink">直接跳转搜索：{primaryQuery}</h3>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {searchTargets.map((target) => (
+                      <a key={target.name} href={target.buildUrl(primaryQuery)} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 border border-coast-100 bg-white p-4 font-black text-ink transition hover:border-coral hover:bg-coast-50">
+                        <span>
+                          {target.name}
+                          <span className="mt-1 block text-xs font-semibold text-ink/55">{target.hint}</span>
+                        </span>
+                        <ExternalLink className="h-4 w-4 text-coral" />
+                      </a>
+                    ))}
                   </div>
-                )}
+                </article>
 
-                {result && (
-                  <>
-                    <article className="card">
-                      <p className="eyebrow">Summary</p>
-                      <h3 className="text-xl font-black text-ink">{result.summary}</h3>
-                      <p className="mt-2 text-sm font-bold text-coast-700">模式：{result.mode}</p>
-                    </article>
-
-                    <ResultList title="修改建议" items={result.recommendations} />
-
-                    <article className="card">
-                      <p className="eyebrow">Suggested Copy</p>
-                      <p className="whitespace-pre-wrap leading-8 text-ink/78">{result.suggestedCopy}</p>
-                    </article>
-
-                    <ResultList title="风险提醒" items={result.warnings} tone="warning" />
-
-                    <article className="card">
-                      <p className="eyebrow">Search Links</p>
-                      <div className="flex flex-wrap gap-2">
-                        {(result.searchLinks || []).map((link) => (
-                          <a key={link.url} href={link.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-coast-50 px-3 py-2 text-sm font-bold text-coast-700 transition hover:bg-coral hover:text-white">
-                            {link.label}
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        ))}
-                      </div>
-                    </article>
-
-                    {Boolean(result.citations?.length) && (
-                      <article className="card">
-                        <p className="eyebrow">Citations</p>
-                        <ul className="space-y-3">
-                          {result.citations.map((item) => (
-                            <li key={`${item.title}-${item.url}`} className="leading-7">
-                              <a href={item.url} target="_blank" rel="noreferrer" className="font-black text-coast-700 hover:text-coral">
-                                {item.title || item.url}
-                              </a>
-                              {item.note && <p className="text-sm text-ink/65">{item.note}</p>}
-                            </li>
+                <article className="card">
+                  <p className="eyebrow">Suggested Queries</p>
+                  <div className="space-y-4">
+                    {queries.map((query) => (
+                      <div key={query} className="border border-coast-100 bg-white p-4">
+                        <div className="mb-3 flex items-center gap-2 font-black text-ink">
+                          <Search className="h-4 w-4 text-coast-500" />
+                          {query}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {searchTargets.map((target) => (
+                            <a key={`${query}-${target.name}`} href={target.buildUrl(query)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-coast-50 px-3 py-2 text-sm font-bold text-coast-700 transition hover:bg-coral hover:text-white">
+                              {target.name}
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
                           ))}
-                        </ul>
-                      </article>
-                    )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
 
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button type="button" onClick={createProposalPr} disabled={creatingPr} className="btn-primary disabled:cursor-not-allowed disabled:opacity-50">
-                        <GitPullRequest className="h-4 w-4" />
-                        {creatingPr ? '创建 PR 中...' : '创建建议 PR'}
-                      </button>
-                      {prUrl && (
-                        <a href={prUrl} target="_blank" rel="noreferrer" className="btn-muted">
-                          打开 PR
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      )}
-                    </div>
-                  </>
-                )}
+                <article className="card">
+                  <p className="eyebrow">Manual Workflow</p>
+                  <ol className="space-y-3 leading-7 text-ink/75">
+                    <li>1. 点开高德确认地址、路线、是否仍营业。</li>
+                    <li>2. 点开小红书或抖音看近期实拍和避坑。</li>
+                    <li>3. 点开百度或 Google 补充公开网页资料。</li>
+                    <li>4. 把确认后的内容写到左侧草稿，再手动更新 `src/data/`。</li>
+                  </ol>
+                </article>
               </div>
             </div>
           </section>
         </div>
       )}
     </>
-  );
-}
-
-function ResultList({ title, items = [], tone = 'normal' }) {
-  if (!items.length) return null;
-  return (
-    <article className="card">
-      <p className="eyebrow">{title}</p>
-      <ul className="space-y-3 leading-7 text-ink/75">
-        {items.map((item) => (
-          <li key={item} className="flex gap-3">
-            <span className={tone === 'warning' ? 'mt-2 h-2 w-2 flex-none rounded-full bg-coral' : 'mt-2 h-2 w-2 flex-none rounded-full bg-coast-500'} />
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-    </article>
   );
 }
