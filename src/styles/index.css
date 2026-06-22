@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    background: #f6efdf;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  .section-wrap {
+    @apply mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20;
+  }
+
+  .section-heading {
+    @apply mb-8 max-w-3xl;
+  }
+
+  .section-heading h2 {
+    @apply text-3xl font-black leading-tight text-ink sm:text-4xl;
+  }
+
+  .section-heading p:not(.eyebrow) {
+    @apply mt-3 leading-7 text-ink/70;
+  }
+
+  .eyebrow {
+    @apply mb-2 text-sm font-black uppercase tracking-[0.18em] text-coral;
+  }
+
+  .card {
+    @apply border border-coast-100 bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-coral px-5 py-3 text-sm font-black text-white transition hover:bg-coast-700 hover:shadow-soft;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-white/40 px-5 py-3 text-sm font-black transition hover:border-coral hover:bg-coral;
+  }
+
+  .btn-muted {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-coast-100 bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-coast-500 hover:bg-coast-50;
+  }
+
+  .nav-link {
+    @apply rounded-full px-3 py-2 text-sm font-bold text-ink/70 transition hover:bg-coast-50 hover:text-coast-700;
+  }
+
+  .info-line {
+    @apply flex items-start gap-2 border-t border-coast-100 pt-3 leading-6 text-ink/70;
+  }
+}
